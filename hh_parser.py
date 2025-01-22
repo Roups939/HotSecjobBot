@@ -1,7 +1,7 @@
 import requests
 import csv
 import time
-
+from bs4 import BeautifulSoup
 
 regions = {
     'москва': 1,
@@ -30,19 +30,19 @@ professions = {
         'application Security Engineer',
         'Information Security Specialist',
         'security Operation Center',
-       'пресейл-инженер по информационной безопасности'
+        'пресейл-инженер по информационной безопасности'
     ],
-   'DevSecOps':[
+    'DevSecOps': [
         'devSecOps',
         'application security engineer',
         'appSec'
-   ],
-   'пентестер':[
+    ],
+    'пентестер': [
         'пентестер',
         'pentester',
         'этичный хакер'
-   ],
-   'антифрод-аналитик':[
+    ],
+    'антифрод-аналитик': [
         'антифрод-аналитик',
         'антифрод аналитик',
         'SOC аналитик',
@@ -51,25 +51,24 @@ professions = {
         'cпециалист отдела информационной безопасности',
         'инженер отдела ИТ поддержки',
         'сетевой аналитик'
-   ],
-   'руководитель отдела информационной безопасности':[
+    ],
+    'руководитель отдела информационной безопасности': [
         'руководитель отдела информационной безопасности',
         'начальник отдела управления требованиями Службы информационной безопасности',
         'начальник отдела информационных технологий'
-   ],
-    'аналитик по расследованию компьютерных инцидентов':[
+    ],
+    'аналитик по расследованию компьютерных инцидентов': [
         'аналитик по расследованию компьютерных инцидентов',
         'ведущий специалист по направлению разведки киберугроз',
     ],
-    'архитектор информационной безопасности':[
+    'архитектор информационной безопасности': [
         'Архитектор информационной безопасности',
         'архитектор ИБ',
         'solution architect',
     ]
-   
 }
 
-def get_vacancies(keyword, area=1, per_page=10, page_limit=3):  
+def get_vacancies(keyword, area=1, per_page=10, page_limit=3):
     base_url = 'https://api.hh.ru/vacancies'
     all_vacancies = []
 
@@ -84,7 +83,8 @@ def get_vacancies(keyword, area=1, per_page=10, page_limit=3):
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'
         }
         response = requests.get(base_url, headers=headers, params=params)
-        response.raise_for_status()  
+        response.raise_for_status()
+        data = response.json()
 
         if 'items' not in data:
             break
@@ -94,7 +94,6 @@ def get_vacancies(keyword, area=1, per_page=10, page_limit=3):
 
         if (page + 1) >= page_limit:
             break
-
 
     return all_vacancies
 
@@ -113,11 +112,21 @@ def get_vacancy_details(vacancy_id):
 
 def extract_requirements(description):
     soup = BeautifulSoup(description, 'html.parser')
-    return soup.get_text().strip()  
+    return soup.get_text().strip()
+
+def format_salary(salary):
+    if salary:
+        from_value = salary.get('from', 'не указана')
+        to_value = salary.get('to', 'не указана')
+        currency = salary.get('currency', '')
+        return f"{from_value} - {to_value} {currency}"
+    return 'Не указана'
 
 def save_to_csv(vacancies, filename):
     with open(filename, 'w', encoding='utf-8', newline='') as file:
-        writer = csv.DictWriter(file, fieldnames=['Название', 'Ссылка', 'Зарплата', 'Локация', 'Требования', 'Профессия'])
+        writer = csv.DictWriter(file, fieldnames=[
+            'Название', 'Ссылка', 'Зарплата', 'Локация', 'Требования', 'Профессия', 'Опыт работы'
+        ])
         writer.writeheader()
 
         for vacancy in vacancies:
@@ -127,16 +136,9 @@ def save_to_csv(vacancies, filename):
                 'Зарплата': format_salary(vacancy['salary']),
                 'Локация': vacancy['area']['name'],
                 'Требования': vacancy['requirements'],
-                'Профессия': vacancy['profession']  
+                'Профессия': vacancy['profession'],
+                'Опыт работы': vacancy['experience']
             })
-
-def format_salary(salary):
-    if salary:
-        from_value = salary.get('from', 'не указана')
-        to_value = salary.get('to', 'не указана')
-        currency = salary.get('currency', '')
-        return f"{from_value} - {to_value} {currency}"
-    return 'Не указана'
 
 def main():
     while True:
@@ -158,7 +160,8 @@ def main():
                                 'salary': vacancy['salary'],
                                 'area': vacancy['area'],
                                 'requirements': requirements,
-                                'profession': profession
+                                'profession': profession,
+                                'experience': vacancy_details.get('experience', {}).get('name', 'Не указан')
                             })
 
             filename = f'{region_id}_vacancies.csv'
