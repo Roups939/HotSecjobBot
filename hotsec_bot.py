@@ -192,7 +192,7 @@ async def cancel(update: Update, context: CallbackContext) -> int:
     await update.message.reply_text("Диалог завершен.")
     return ConversationHandler.END
 def main():
-    application = Application.builder().token("token!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!").build()## Вставь токен,я его потерял!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    application = Application.builder().token("8143403363:AAEkErlGV0dd5fNa5f8uDd6xXgBSYg6t7aM").build()
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
