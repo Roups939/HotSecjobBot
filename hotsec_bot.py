@@ -7,7 +7,9 @@ from collections import Counter
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 CHOOSING_VACANCY, CHOOSING_REGION = range(2)
+
 regions = {
     'москва': 1,
     'санкт-петербург': 2,
@@ -22,6 +24,7 @@ regions = {
     'уфа': 99,
     'красноярск': 120
 }
+
 VACANCIES = [
     'кибербезопасность',
     'DevSecOps',
@@ -31,6 +34,7 @@ VACANCIES = [
     'аналитик по расследованию компьютерных инцидентов',
     'архитектор информационной безопасности'
 ]
+
 def read_vacancies_from_csv(region_id):
     filename = f'{region_id}_vacancies.csv'
     try:
@@ -39,7 +43,8 @@ def read_vacancies_from_csv(region_id):
             return list(reader)
     except FileNotFoundError:
         return None
-def calculate_average_salary(vacancies):
+
+def calculate_salary_range(vacancies):
     salaries = []
     for vacancy in vacancies:
         salary = vacancy['Зарплата']
@@ -54,7 +59,10 @@ def calculate_average_salary(vacancies):
                         salaries.append(avg_salary)
                 except ValueError:
                     continue
-    return sum(salaries) / len(salaries) if salaries else None
+    if salaries:
+        return min(salaries), max(salaries), sum(salaries) / len(salaries)
+    return None, None, None
+
 def analyze_requirements(vacancies):
     requirements = []
     for vacancy in vacancies:
@@ -76,6 +84,7 @@ def analyze_requirements(vacancies):
                 skill_counts[skill] += 1
 
     return skill_counts.most_common(5)
+
 def generate_recommendations(common_skills, profession):
     if not common_skills:
         return "Нет данных для рекомендаций."
@@ -132,6 +141,7 @@ def generate_recommendations(common_skills, profession):
         result.append(f"Рекомендуемые сертификации: {', '.join(recommendations['сертификации'])}.")
     
     return "\n".join(result) if result else "Нет данных для рекомендаций."
+
 async def start(update: Update, context: CallbackContext) -> int:
     await update.message.reply_text(
         "Привет! Выбери вакансию из списка:\n"
@@ -145,6 +155,7 @@ async def start(update: Update, context: CallbackContext) -> int:
         "Введи номер вакансии (1-7)."
     )
     return CHOOSING_VACANCY
+
 async def choose_vacancy(update: Update, context: CallbackContext) -> int:
     user_input = update.message.text.strip()
     if not user_input.isdigit() or int(user_input) < 1 or int(user_input) > 7:
@@ -159,6 +170,7 @@ async def choose_vacancy(update: Update, context: CallbackContext) -> int:
         "Москва, Санкт-Петербург, Екатеринбург, Новосибирск, Нижний Новгород, Казань, Челябинск, Самара, Омск, Ростов-на-Дону, Уфа, Красноярск."
     )
     return CHOOSING_REGION
+
 async def choose_region(update: Update, context: CallbackContext) -> int:
     region = update.message.text.strip().lower()
     if region not in regions:
@@ -175,8 +187,12 @@ async def choose_region(update: Update, context: CallbackContext) -> int:
     if not filtered_vacancies:
         await update.message.reply_text(f"В регионе {region.title()} нет вакансий по специальности '{selected_vacancy.title()}'.")
         return ConversationHandler.END
-    avg_salary = calculate_average_salary(filtered_vacancies)
-    avg_salary_text = f"Средняя зарплата: {avg_salary:.2f} руб." if avg_salary else "Зарплата не указана."
+    min_salary, max_salary, avg_salary = calculate_salary_range(filtered_vacancies)
+    salary_text = (
+        f"Минимальная зарплата: {min_salary:.2f} руб.\n"
+        f"Максимальная зарплата: {max_salary:.2f} руб.\n"
+        f"Средняя зарплата: {avg_salary:.2f} руб."
+    ) if min_salary is not None and max_salary is not None and avg_salary is not None else "Зарплата не указана."
 
     common_skills = analyze_requirements(filtered_vacancies)
     recommendations = generate_recommendations(common_skills, selected_vacancy)
@@ -184,13 +200,15 @@ async def choose_region(update: Update, context: CallbackContext) -> int:
         f"Специальность: {selected_vacancy.title()}\n"
         f"Регион: {region.title()}\n"
         f"Найдено вакансий: {len(filtered_vacancies)}\n\n"
-        f"{avg_salary_text}\n"
+        f"{salary_text}\n"
         f"Рекомендации:\n{recommendations}"
     )
     return ConversationHandler.END
+
 async def cancel(update: Update, context: CallbackContext) -> int:
     await update.message.reply_text("Диалог завершен.")
     return ConversationHandler.END
+
 def main():
     application = Application.builder().token("8143403363:AAEkErlGV0dd5fNa5f8uDd6xXgBSYg6t7aM").build()
     conv_handler = ConversationHandler(
