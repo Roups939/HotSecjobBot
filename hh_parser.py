@@ -122,10 +122,25 @@ def format_salary(salary):
         return f"{from_value} - {to_value} {currency}"
     return 'Не указана'
 
+def get_work_type(vacancy_details):
+    if 'employment' not in vacancy_details:
+        return 'Офис'  # По умолчанию, если данных нет
+
+    employment = vacancy_details['employment']
+    
+    if employment.get('id') == 'remote':
+        return 'Удалённая работа'
+    
+    description = vacancy_details.get('description', '').lower()
+    if 'удалённ' in description or 'remote' in description:
+        return 'Удалённая работа'
+    
+    return 'Офис'
+
 def save_to_csv(vacancies, filename):
     with open(filename, 'w', encoding='utf-8', newline='') as file:
         writer = csv.DictWriter(file, fieldnames=[
-            'Название', 'Ссылка', 'Зарплата', 'Локация', 'Требования', 'Профессия', 'Опыт работы'
+            'Название', 'Ссылка', 'Зарплата', 'Локация', 'Требования', 'Профессия', 'Опыт работы', 'Тип работы'
         ])
         writer.writeheader()
 
@@ -137,7 +152,8 @@ def save_to_csv(vacancies, filename):
                 'Локация': vacancy['area']['name'],
                 'Требования': vacancy['requirements'],
                 'Профессия': vacancy['profession'],
-                'Опыт работы': vacancy['experience']
+                'Опыт работы': vacancy['experience'],
+                'Тип работы': vacancy['work_type']
             })
 
 def main():
@@ -154,6 +170,7 @@ def main():
                         vacancy_details = get_vacancy_details(vacancy['id'])
                         if vacancy_details:
                             requirements = extract_requirements(vacancy_details['description'])
+                            work_type = get_work_type(vacancy_details)
                             all_vacancies.append({
                                 'name': vacancy['name'],
                                 'alternate_url': vacancy['alternate_url'],
@@ -161,7 +178,8 @@ def main():
                                 'area': vacancy['area'],
                                 'requirements': requirements,
                                 'profession': profession,
-                                'experience': vacancy_details.get('experience', {}).get('name', 'Не указан')
+                                'experience': vacancy_details.get('experience', {}).get('name', 'Не указан'),
+                                'work_type': work_type
                             })
 
             filename = f'{region_id}_vacancies.csv'
